@@ -714,9 +714,10 @@ class Gateway extends MeprBaseRealGateway {
 	        return $payment;
 	    }
 
-	    $custom_profile_values = $txn->user()->custom_profile_values();
-	    if (array_key_exists($this->settings->phone_slug, $custom_profile_values)){
-	        $payment->telephone_number = $txn->user()->custom_profile_values()[$this->settings->phone_slug];
+	    $user = $txn->user();
+	    $phone = get_user_meta($user->ID, $this->settings->phone_slug, true);
+	    if (isset($phone)){
+	        $payment->telephone_number = $phone;
 	    }
 
 	    return $payment;
