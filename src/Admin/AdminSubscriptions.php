@@ -47,7 +47,7 @@ class AdminSubscriptions {
 	 * @param array $columns Columns.
 	 */
 	public function manage_subscriptions_columns( $columns ) {
-		$columns['pronamic_subscription'] = __( 'Pronamic Subscription', 'pronamic_ideal' );
+		$columns['pronamic_subscription'] = __( 'Knit Pay Subscription', 'pronamic_ideal' );
 
 		return $columns;
 	}

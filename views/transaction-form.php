@@ -11,7 +11,7 @@
 ?>
 <tr valign="top">
 	<th scope="row">
-		<label for="trans_num"><?php esc_html_e( 'Pronamic Payment', 'pronamic_ideal' ); ?></label>
+		<label for="trans_num"><?php esc_html_e( 'Knit Pay Payment', 'pronamic_ideal' ); ?></label>
 	</th>
 	<td>
 		<?php

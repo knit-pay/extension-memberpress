@@ -63,12 +63,12 @@ class Gateway extends MeprBaseRealGateway {
 	public function __construct() {
 		// Set the name of this gateway.
 		// @link https://gitlab.com/pronamic/memberpress/blob/1.2.4/app/lib/MeprBaseGateway.php#L12-13.
-		$this->name = __( 'Pronamic', 'pronamic_ideal' );
+		$this->name = __( 'Knit Pay', 'pronamic_ideal' );
 
 		if ( ! empty( $this->payment_method ) ) {
 			$this->name = sprintf(
 				/* translators: %s: payment method name */
-				__( 'Pronamic - %s', 'pronamic_ideal' ),
+				__( 'Knit Pay - %s', 'pronamic_ideal' ),
 				PaymentMethods::get_name( $this->payment_method )
 			);
 		}
@@ -673,6 +673,8 @@ class Gateway extends MeprBaseRealGateway {
 		$payment->config_id = $this->settings->config_id;
 		$payment->method    = $this->payment_method;
 
+		$payment = $this->set_phone($payment, $txn);
+
 		$error = null;
 
 		try {
@@ -705,6 +707,19 @@ class Gateway extends MeprBaseRealGateway {
 
 		// Redirect.
 		$gateway->redirect( $payment );
+	}
+
+	private function set_phone($payment, $txn) {
+	    if (!isset($this->settings->phone_slug)){
+	        return $payment;
+	    }
+
+	    $custom_profile_values = $txn->user()->custom_profile_values();
+	    if (array_key_exists($this->settings->phone_slug, $custom_profile_values)){
+	        $payment->telephone_number = $txn->user()->custom_profile_values()[$this->settings->phone_slug];
+	    }
+
+	    return $payment;
 	}
 
 	/**
@@ -892,6 +907,12 @@ class Gateway extends MeprBaseRealGateway {
 						?>
 					</select>
 				</td>
+			</tr>
+
+			 <tr>
+        			<td><?php _e('Phone Custom Field (Slug)*:', 'knit-pay'); ?></td>
+        			<td><input type="text" class="mepr-auto-trim" name="<?php echo $mepr_options->integrations_str; ?>[<?php echo $this->id;?>][phone_slug]" value="<?php echo $this->settings->phone_slug; ?>" /></td>
+        			<td>Create Custom Field "Phone" and paste slug of the custom filed here.</td>
 			</tr>
 		</table>
 		<?php
