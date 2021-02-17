@@ -26,10 +26,22 @@ use Pronamic\WordPress\Pay\Subscriptions\SubscriptionPhase;
  * Pronamic
  *
  * @author  Remco Tolsma
- * @version 2.0.10
+ * @version 2.2.3
  * @since   2.0.5
  */
 class Pronamic {
+	/**
+	 * Get payment method icon URL.
+	 *
+	 * @param string $method Payment method.
+	 * @return string
+	 */
+	public static function get_method_icon_url( $method ) {
+		$method = \str_replace( '_', '-', $method );
+
+		return sprintf( 'https://cdn.wp-pay.org/jsdelivr.net/npm/@wp-pay/logos@1.6.5/dist/methods/%1$s/method-%1$s-640x360.svg', $method );
+	}
+
 	/**
 	 * Get Pronamic payment from MemberPress transaction.
 	 *
