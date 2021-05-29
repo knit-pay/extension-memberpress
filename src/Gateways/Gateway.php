@@ -3,7 +3,7 @@
  * Gateway
  *
  * @author    Pronamic <info@pronamic.eu>
- * @copyright 2005-2020 Pronamic
+ * @copyright 2005-2021 Pronamic
  * @license   GPL-3.0-or-later
  * @package   Pronamic\WordPress\Pay\Extensions\MemberPress
  */
@@ -32,7 +32,7 @@ use ReflectionClass;
  * WordPress pay MemberPress gateway
  *
  * @author  Remco Tolsma
- * @version 2.2.3
+ * @version 2.3.1
  * @since   1.0.0
  */
 class Gateway extends MeprBaseRealGateway {
@@ -83,6 +83,18 @@ class Gateway extends MeprBaseRealGateway {
 
 		// Setup the notification actions for this gateway.
 		$this->notifiers = array();
+
+		// Support single-page checkout.
+		$this->has_spc_form = true;
+
+		// Key.
+		$key = 'pronamic_pay';
+
+		if ( null !== $this->payment_method ) {
+			$key = sprintf( 'pronamic_pay_%s', $this->payment_method );
+		}
+
+		$this->key = $key;
 	}
 
 	/**
@@ -383,7 +395,7 @@ class Gateway extends MeprBaseRealGateway {
 	}
 
 	/**
-	 * Reord trial payment.
+	 * Record trial payment.
 	 *
 	 * @link https://gitlab.com/pronamic/memberpress/blob/1.2.4/app/lib/MeprBaseGateway.php#L159-161
 	 *
@@ -664,21 +676,21 @@ class Gateway extends MeprBaseRealGateway {
 	 * @since 1.0.2
 	 */
 	public function payment_redirect( $txn ) {
-		$txn = new MeprTransaction( $txn->id );
-
 		// Gateway.
-		$config_id = $this->settings->config_id;
+		$config_id = $this->get_config_id();
 
 		$gateway = Plugin::get_gateway( $config_id );
 
-		if ( ! $gateway ) {
+		if ( null === $gateway ) {
 			return;
 		}
 
 		// Create Pronamic payment.
+		$txn = new MeprTransaction( $txn->id );
+
 		$payment = Pronamic::get_payment( $txn );
 
-		$payment->config_id = $this->settings->config_id;
+		$payment->config_id = $config_id;
 		$payment->method    = $this->payment_method;
 
 		$payment = $this->set_phone($payment, $txn);
@@ -711,7 +723,7 @@ class Gateway extends MeprBaseRealGateway {
 		}
 
 		if ( $error instanceof \Exception ) {
-			// Rethrow error, catched by MemberPress.
+			// Rethrow error, caught by MemberPress.
 			throw $error;
 		}
 
@@ -746,15 +758,15 @@ class Gateway extends MeprBaseRealGateway {
 	 */
 	public function display_payment_page( $txn ) {
 		// Gateway.
-		$config_id = $this->settings->config_id;
+		$config_id = $this->get_config_id();
 
 		$gateway = Plugin::get_gateway( $config_id );
 
-		// Check gateway.
 		if ( null === $gateway ) {
 			return;
 		}
 
+		// Redirect payment on empty input HTML.
 		$gateway->set_payment_method( $this->payment_method );
 
 		$html = $gateway->get_input_html();
@@ -773,22 +785,21 @@ class Gateway extends MeprBaseRealGateway {
 	 *
 	 * @param MeprTransaction $txn MemberPress transaction object.
 	 *
-	 * @return bool
+	 * @return void
 	 * @throws \Exception Throws exception on gateway payment start error.
 	 */
 	public function process_payment_form( $txn ) {
-		if ( ! filter_has_var( INPUT_POST, 'pronamic_pay_memberpress_pay' ) ) {
-			return false;
-		}
-
 		// Gateway.
-		$config_id = $this->settings->config_id;
+		$config_id = $this->get_config_id();
 
 		$gateway = Plugin::get_gateway( $config_id );
 
-		if ( $gateway ) {
-			$this->payment_redirect( $txn );
+		if ( null === $gateway ) {
+			return;
 		}
+
+		// Redirect.
+		$this->payment_redirect( $txn );
 	}
 
 	/**
@@ -816,13 +827,36 @@ class Gateway extends MeprBaseRealGateway {
 	 * @param int      $txn_id     Transaction ID.
 	 */
 	public function display_payment_form( $amount, $user, $product_id, $txn_id ) {
+		// Gateway.
+		$config_id = $this->get_config_id();
+
+		$gateway = Plugin::get_gateway( $config_id );
+
+		if ( null === $gateway ) {
+
+			$admin_message = null;
+
+			if ( \current_user_can( 'manage_options' ) ) {
+				$admin_message = __( 'For admins only: check payment method settings in MemberPress.', 'pronamic_ideal' );
+			}
+
+			printf(
+				'<div class="mp_wrapper mp_payment_form_wrapper"><ul><li>%s</li>%s</ul></div>',
+				\esc_html( Plugin::get_default_error_message() ),
+				null === $admin_message ? '' : sprintf( '<li><em>%s</em></li>', \esc_html( $admin_message ) )
+			);
+
+			return;
+		}
+
+		// Invoice.
 		$product = new MeprProduct( $product_id );
 
 		$coupon = false;
 
 		$txn = new MeprTransaction( $txn_id );
 
-		// Artifically set the price of the $prd in case a coupon was used.
+		// Artificially set the price of the $prd in case a coupon was used.
 		if ( $product->price !== $amount ) {
 			$coupon         = true;
 			$product->price = $amount;
@@ -844,17 +878,10 @@ class Gateway extends MeprBaseRealGateway {
 
 				<?php
 
-				// Gateway.
-				$config_id = $this->settings->config_id;
+				$gateway->set_payment_method( $this->payment_method );
 
-				$gateway = Plugin::get_gateway( $config_id );
-
-				if ( null !== $gateway ) {
-					$gateway->set_payment_method( $this->payment_method );
-
-					// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
-					echo $gateway->get_input_html();
-				}
+				// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+				echo $gateway->get_input_html();
 
 				?>
 
@@ -872,6 +899,33 @@ class Gateway extends MeprBaseRealGateway {
 			</form>
 		</div>
 		<?php
+	}
+
+	/**
+	 * Single-page checkout payment fields.
+	 *
+	 * @return string
+	 */
+	public function spc_payment_fields() {
+		// Gateway.
+		$config_id = $this->get_config_id();
+
+		$gateway = Plugin::get_gateway( $config_id );
+
+		if ( null === $gateway ) {
+			return '';
+		}
+
+		// Input HTML.
+		$gateway->set_payment_method( $this->payment_method );
+
+		$html = $gateway->get_input_html();
+
+		if ( empty( $html ) ) {
+			return '';
+		}
+
+		return $html;
 	}
 
 	/**
@@ -1024,5 +1078,27 @@ class Gateway extends MeprBaseRealGateway {
 	 */
 	public function force_ssl() {
 		return false;
+	}
+
+	/**
+	 * Get config ID.
+	 *
+	 * @return string|int|null
+	 */
+	protected function get_config_id() {
+		// Get config ID setting.
+		$config_id = $this->settings->config_id;
+
+		// Check empty config ID.
+		if ( empty( $config_id ) ) {
+			$config_id = \get_option( 'pronamic_pay_config_id' );
+		}
+
+		// Check empty config ID.
+		if ( empty( $config_id ) ) {
+			$config_id = null;
+		}
+
+		return $config_id;
 	}
 }

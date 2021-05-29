@@ -1,6 +1,6 @@
 <?php
 /**
- * Bank transfer gateway alias
+ * Direct Debit gateway alias
  *
  * @author    Pronamic <info@pronamic.eu>
  * @copyright 2005-2021 Pronamic
@@ -8,4 +8,4 @@
  * @package   Pronamic\WordPress\Pay\Extensions\MemberPress
  */
 
-class_alias( 'Pronamic\WordPress\Pay\Extensions\MemberPress\Gateways\BankTransferGateway', 'MeprBankTransferGateway' );
+class_alias( 'Pronamic\WordPress\Pay\Extensions\MemberPress\Gateways\DirectDebitGateway', 'MeprDirectDebitGateway' );
